@@ -19,6 +19,66 @@ import {
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
+type Pane = "pick" | "form" | "manage" | "done"
+type Mode = "book" | "reschedule"
+type Status = "ok" | "bad"
+type Tone = "ok" | "bad" | "warn" | "info"
+type ButtonVariant = "primary" | "accent" | "ghost" | "danger"
+type ButtonSize = "md" | "sm"
+
+interface Booking {
+  day: number
+  slot: any
+  name: string
+  email: string
+}
+
+const formFields = [
+  {
+    id: "fName",
+    key: "name",
+    label: "Name",
+    type: "text",
+    ph: "Aarav Sharma",
+    ac: "name",
+  },
+  {
+    id: "fEmail",
+    key: "email",
+    label: "Email",
+    type: "email",
+    ph: "aarav@example.com",
+    ac: "email",
+  },
+] satisfies {
+  id: string;
+  key: keyof BookingForm;
+  label: string;
+  type: string;
+  ph: string;
+  ac: string;
+}[];
+
+interface BookingForm {
+  name: string
+  email: string
+  notes: string
+}
+
+interface PillProps {
+  tone?: Tone
+  children: React.ReactNode
+  className?: string
+}
+
+interface BtnProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
+  variant?: ButtonVariant
+  size?: ButtonSize
+  block?: boolean
+  className?: string
+  children: React.ReactNode
+}
+
 const WEEKDAY = [
   "Sunday",
   "Monday",
@@ -43,7 +103,7 @@ const TIMES = [
   "15:00",
   "15:30",
 ]
-const BOOKED = {
+const BOOKED: Record<number, string[]> = {
   3: ["10:00", "14:30"],
   4: ["09:00", "09:30", "15:30"],
   5: ["11:00"],
@@ -64,13 +124,14 @@ const BOOKED = {
   27: ["09:00", "10:30"],
 }
 const DAYS = Array.from({ length: 30 }, (_, i) => i + 1)
-const isFree = (d) => {
+const isFree = (d: number) => {
   const w = (d + 6) % 7
   return w >= 1 && w <= 5 && d !== OVERRIDE
 }
-const freeTimes = (d) => TIMES.filter((t) => !(BOOKED[d] || []).includes(t))
-const dayLabel = (d) => `${WEEKDAY[(d + 6) % 7]}, November ${d}`
-const fmt = (t) => {
+const freeTimes = (d: number) =>
+  TIMES.filter((t) => !(BOOKED[d] || []).includes(t))
+const dayLabel = (d: number) => `${WEEKDAY[(d + 6) % 7]}, November ${d}`
+const fmt = (t: string) => {
   let [h, m] = t.split(":").map(Number)
   const ap = h >= 12 ? "PM" : "AM"
   h = h % 12 || 12
@@ -83,7 +144,7 @@ const PILL_TONES = {
   warn: "bg-[#fdf1d6] text-[#8a5a00]",
   info: "bg-indigo-100 text-accent",
 }
-function Pill({ tone = "ok", children, className = "" }) {
+function Pill({ tone = "ok", children, className = "" }: PillProps) {
   return (
     <span
       className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-bold whitespace-nowrap ${PILL_TONES[tone]} ${className}`}
@@ -117,7 +178,7 @@ function Btn({
   className = "",
   children,
   ...props
-}) {
+}: BtnProps) {
   return (
     <button
       type="button"
@@ -132,9 +193,9 @@ function Btn({
 function BookingDemo() {
   const [day, setDay] = useState(2)
   const [slot, setSlot] = useState(null)
-  const [pane, setPane] = useState("pick") // pick | form | manage | done
-  const [mode, setMode] = useState("book") // book | reschedule
-  const [booking, setBooking] = useState(null)
+  const [pane, setPane] = useState("pick")
+  const [mode, setMode] = useState("book")
+  const [booking, setBooking] = useState<Booking | null>(null)
   const [form, setForm] = useState({ name: "", email: "", notes: "" })
   const [formErr, setFormErr] = useState(false)
   const [icsOpen, setIcsOpen] = useState(false)
@@ -146,19 +207,20 @@ function BookingDemo() {
 
   const resetPickMode = () => setMode("book")
 
-  const chooseTime = (time) => {
+  const chooseTime = (time: any): void => {
     if (mode === "reschedule") {
-      setBooking((b) => ({ ...b, day, slot: time }))
+      setBooking((b: any) => (b ? { ...b, day, slot: time } : null))
       setSlot(time)
       resetPickMode()
       setPane("done")
       return
     }
+
     setSlot(time)
     setPane("form")
   }
 
-  const confirmBooking = () => {
+  const confirmBooking = (): void => {
     const bad =
       !form.name.trim() || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(form.email.trim())
     setFormErr(bad)
@@ -168,7 +230,8 @@ function BookingDemo() {
     setIcsOpen(false)
   }
 
-  const openManage = () => {
+  const openManage = (): void => {
+    if (!booking) return
     setDay(booking.day)
     setSlot(booking.slot)
     setStatus("ok")
@@ -177,14 +240,15 @@ function BookingDemo() {
     setPane("manage")
   }
 
-  const startReschedule = () => {
+  const startReschedule = (): void => {
+      if (!booking) return;
     setMode("reschedule")
     setDay(booking.day)
     setSlot(null)
     setPane("pick")
   }
 
-  const cancelBooking = () => {
+  const cancelBooking = (): void => {
     setCxOpen(false)
     setActionsOff(true)
     setStatus("bad")
@@ -203,7 +267,7 @@ function BookingDemo() {
 
   const icsText = () => {
     if (!booking) return ""
-    const p = (n) => String(n).padStart(2, "0")
+    const p = (n: any) => String(n).padStart(2, "0")
     const [h, m] = booking.slot.split(":").map(Number)
     const d = `202611${p(booking.day)}`
     const end = h * 60 + m + 30
@@ -410,24 +474,7 @@ function BookingDemo() {
                   Enter your details
                 </h3>
                 <div className="grid grid-cols-2 gap-6">
-                  {[
-                    {
-                      id: "fName",
-                      key: "name",
-                      label: "Name",
-                      type: "text",
-                      ph: "Aarav Sharma",
-                      ac: "name",
-                    },
-                    {
-                      id: "fEmail",
-                      key: "email",
-                      label: "Email",
-                      type: "email",
-                      ph: "aarav@example.com",
-                      ac: "email",
-                    },
-                  ].map((f) => (
+                  {formFields.map((f) => (
                     <div key={f.id} className="mt-4 grid gap-2">
                       <label htmlFor={f.id} className="text-sm font-semibold">
                         {f.label}
@@ -441,7 +488,7 @@ function BookingDemo() {
                         onChange={(e) =>
                           setForm({ ...form, [f.key]: e.target.value })
                         }
-                        className="ring-border bg-surface w-full rounded-xl ring px-3.5 py-3 text-[15px] transition outline-none focus:border-accent focus:shadow-[0_0_0_4px_rgba(59,51,209,.12)]"
+                        className="bg-surface w-full rounded-xl px-3.5 py-3 text-[15px] ring ring-border transition outline-none focus:border-accent focus:shadow-[0_0_0_4px_rgba(59,51,209,.12)]"
                       />
                     </div>
                   ))}
@@ -543,9 +590,9 @@ function BookingDemo() {
       )}
 
       {!splitOn && booking && (
-        <div className="ring-border bg-surface relative mx-auto max-w-[460px] rounded-3xl ring px-9 pt-11 pb-9 text-center shadow-lg max-[620px]:px-5 max-[620px]:pt-[34px] max-[620px]:pb-[26px]">
-          <div className="bg-[#e1f3e8] mx-auto grid h-24 w-24 place-items-center rounded-full">
-            <div className="ring-[#187a4c] bg-white text-ok grid h-[58px] w-[58px] place-items-center rounded-full ring-2">
+        <div className="bg-surface relative mx-auto max-w-[460px] rounded-3xl px-9 pt-11 pb-9 text-center shadow-lg ring ring-border max-[620px]:px-5 max-[620px]:pt-[34px] max-[620px]:pb-[26px]">
+          <div className="mx-auto grid h-24 w-24 place-items-center rounded-full bg-[#e1f3e8]">
+            <div className="text-ok grid h-[58px] w-[58px] place-items-center rounded-full bg-white ring-2 ring-[#187a4c]">
               <Check className="h-[26px] w-[26px] stroke-[2.6]" />
             </div>
           </div>
@@ -564,14 +611,14 @@ function BookingDemo() {
                 {dayLabel(booking.day)} · {fmt(booking.slot)} (30 min)
               </li>
               <div className="grid grid-cols-2 gap-6">
-              <li className="text-ink-2 flex items-center gap-3 text-[15px]">
-                <Video className="text-ink-3 h-[18px] w-[18px]" />
-                Online meeting
-              </li>
-              <li className="text-ink-2 flex items-center gap-3 text-[15px]">
-                <Mail className="text-ink-3 h-[18px] w-[18px]" />
-                with Priya Nair
-              </li>
+                <li className="text-ink-2 flex items-center gap-3 text-[15px]">
+                  <Video className="text-ink-3 h-[18px] w-[18px]" />
+                  Online meeting
+                </li>
+                <li className="text-ink-2 flex items-center gap-3 text-[15px]">
+                  <Mail className="text-ink-3 h-[18px] w-[18px]" />
+                  with Priya Nair
+                </li>
               </div>
             </ul>
           </div>
